@@ -154,6 +154,15 @@ const ProductAndRoleSelection = ({ onSelect, onBack }) => {
     const [product, setProduct] = useState(null);
     const [role, setRole] = useState(null);
 
+    // Define the full class strings as constants
+    const productButtonBase = "p-6 rounded-xl border-2 transition-all";
+    const productButtonActive = "border-indigo-600 bg-indigo-50 shadow-md";
+    const productButtonInactive = "border-gray-200 bg-white hover:border-indigo-300";
+
+    const roleButtonBase = "px-5 py-3 rounded-lg border-2 text-base font-semibold transition-all w-full sm:w-auto";
+    const roleButtonActive = "border-indigo-600 bg-indigo-50 shadow-md";
+    const roleButtonInactive = "border-gray-200 bg-white hover:border-indigo-300";
+
     return (
         <div className="text-center">
             <h1 className="text-3xl font-bold tracking-tight text-gray-900">Let's Get Started</h1>
@@ -161,7 +170,12 @@ const ProductAndRoleSelection = ({ onSelect, onBack }) => {
             
             <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {Object.entries(productData).map(([name, { icon }]) => (
-                    <button key={name} onClick={() => setProduct(name)} className={`p-6 rounded-xl border-2 transition-all ${product === name ? 'border-indigo-600 bg-indigo-50 shadow-md' : 'border-gray-200 bg-white hover:border-indigo-300'}`}>
+                    <button 
+                        key={name} 
+                        onClick={() => setProduct(name)} 
+                        // Apply the classes based on the condition
+                        className={`${productButtonBase} ${product === name ? productButtonActive : productButtonInactive}`}
+                    >
                         <span className="text-5xl">{icon}</span>
                         <h3 className="mt-2 text-lg font-semibold text-gray-900">{name}</h3>
                     </button>
@@ -174,7 +188,12 @@ const ProductAndRoleSelection = ({ onSelect, onBack }) => {
                     <p className="mt-1 text-gray-600">This will tailor the questions to the right level of strategic depth.</p>
                     <div className="mt-6 flex flex-col sm:flex-row flex-wrap justify-center gap-4">
                         {roles.map(r => (
-                            <button key={r} onClick={() => setRole(r)} className={`px-5 py-3 rounded-lg border-2 text-base font-semibold transition-all w-full sm:w-auto ${role === r ? 'border-indigo-600 bg-indigo-50 shadow-md' : 'border-gray-200 bg-white hover:border-indigo-300'}`}>
+                            <button 
+                                key={r} 
+                                onClick={() => setRole(r)} 
+                                // Apply the classes based on the condition
+                                className={`${roleButtonBase} ${role === r ? roleButtonActive : roleButtonInactive}`}
+                            >
                                 {r}
                             </button>
                         ))}
