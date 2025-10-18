@@ -168,18 +168,20 @@ const ProductAndRoleSelection = ({ onSelect, onBack }) => {
             <h1 className="text-3xl font-bold tracking-tight text-gray-900">Let's Get Started</h1>
             <p className="mt-2 text-lg text-gray-600">First, choose a product to analyze.</p>
             
-            <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {Object.entries(productData).map(([name, { icon }]) => (
-                    <button 
-                        key={name} 
-                        onClick={() => setProduct(name)} 
-                        // Apply the classes based on the condition
-                        className={`${productButtonBase} ${product === name ? productButtonActive : productButtonInactive}`}
-                    >
-                        <span className="text-5xl">{icon}</span>
-                        <h3 className="mt-2 text-lg font-semibold text-gray-900">{name}</h3>
-                    </button>
-                ))}
+            <div className="mt-8 flex justify-center">
+                <div className="grid w-fit grid-cols-1 gap-4 place-items-center sm:grid-cols-2 lg:grid-cols-3">
+                    {Object.entries(productData).map(([name, { icon }]) => (
+                        <button 
+                            key={name} 
+                            onClick={() => setProduct(name)} 
+                            // Apply the classes based on the condition
+                            className={`${productButtonBase} ${product === name ? productButtonActive : productButtonInactive}`}
+                        >
+                            <span className="text-5xl">{icon}</span>
+                            <h3 className="mt-2 text-lg font-semibold text-gray-900">{name}</h3>
+                        </button>
+                    ))}
+                </div>
             </div>
 
             {product && (
@@ -238,6 +240,7 @@ const CritiqueView = ({ product, flow, role, onComplete, onBack }) => {
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [userAnswer, setUserAnswer] = useState('');
   const [allAnswers, setAllAnswers] = useState([]);
+  const [allFeedbacks, setAllFeedbacks] = useState([]);
   const [feedback, setFeedback] = useState('');
   const [isLoadingFeedback, setIsLoadingFeedback] = useState(false);
 
@@ -263,7 +266,8 @@ const CritiqueView = ({ product, flow, role, onComplete, onBack }) => {
     try {
         const aiFeedback = await getAIFeedback(product, flow, currentQuestion.question, userAnswer);
         setFeedback(aiFeedback);
-        setAllAnswers([...allAnswers, userAnswer]);
+        setAllAnswers(prev => [...prev, userAnswer]);
+        setAllFeedbacks(prev => [...prev, aiFeedback]);
     } catch (error) {
         setFeedback("Sorry, an error occurred while getting feedback.");
     } finally {
@@ -277,7 +281,7 @@ const CritiqueView = ({ product, flow, role, onComplete, onBack }) => {
       setUserAnswer('');
       setFeedback('');
     } else {
-      onComplete(allAnswers);
+      onComplete(allAnswers, allFeedbacks);
     }
   };
 
@@ -329,9 +333,28 @@ const CritiqueView = ({ product, flow, role, onComplete, onBack }) => {
   );
 };
 
-const SummaryView = ({ product, flow, role, answers, onReset, onBackToFlows }) => {
+const SummaryView = ({ product, flow, role, answers, feedbacks = [], onReset, onBackToFlows }) => {
     const [summary, setSummary] = useState('');
     const [isLoading, setIsLoading] = useState(true);
+    const [showDetails, setShowDetails] = useState(false);
+
+    // Strip common Markdown syntax so the summary renders as plain text
+    const stripMarkdown = (text) => {
+        if (!text) return '';
+        return text
+            .replace(/```[\s\S]*?```/g, (m) => m.replace(/```/g, ''))
+            .replace(/`([^`]+)`/g, '$1')
+            .replace(/\*\*([^*]+)\*\*/g, '$1')
+            .replace(/\*([^*]+)\*/g, '$1')
+            .replace(/__([^_]+)__/g, '$1')
+            .replace(/_([^_]+)_/g, '$1')
+            .replace(/^\s{0,3}>\s?/gm, '')
+            .replace(/^#{1,6}\s*/gm, '')
+            .replace(/!\[([^\]]*)\]\([^\)]*\)/g, '$1')
+            .replace(/\[([^\]]+)\]\(([^\)]+)\)/g, '$1')
+            .replace(/^\s*[-*+]\s+/gm, '- ')
+            .replace(/\r\n/g, '\n');
+    };
 
     useEffect(() => {
         const fetchSummary = async () => {
@@ -347,6 +370,8 @@ const SummaryView = ({ product, flow, role, answers, onReset, onBackToFlows }) =
         fetchSummary();
     }, [product, flow, role, answers]);
 
+    const questions = productData[product].flows[flow][role];
+
     return (
         <div className="text-center p-8 bg-white rounded-xl shadow-lg border border-gray-200">
             <Star className="mx-auto h-16 w-16 text-amber-500" />
@@ -360,9 +385,42 @@ const SummaryView = ({ product, flow, role, answers, onReset, onBackToFlows }) =
                         <span className="text-gray-700">Generating your summary...</span>
                     </div>
                 ) : (
-                    <p className="text-gray-800 whitespace-pre-wrap">{summary}</p>
+                    <p className="text-gray-800 whitespace-pre-wrap">{stripMarkdown(summary)}</p>
                 )}
             </div>
+
+            <div className="mt-4">
+                <button onClick={() => setShowDetails(v => !v)} className="w-full rounded-md bg-white px-4 py-2.5 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50">
+                    {showDetails ? 'Hide Answers & Feedback' : 'Show Answers & Feedback'}
+                </button>
+            </div>
+
+            {showDetails && (
+                <div className="mt-6 space-y-4 text-left">
+                    {answers.map((ans, i) => (
+                        <div key={i} className="rounded-lg border bg-gray-50 p-4">
+                            <div className="text-sm text-gray-500">Question {i + 1}</div>
+                            <div className="font-semibold text-gray-900 mt-1">{questions[i]?.question}</div>
+                            <div className="mt-3">
+                                <div className="text-sm font-medium text-gray-700">Your Answer</div>
+                                <p className="mt-1 whitespace-pre-wrap text-gray-800">{ans}</p>
+                            </div>
+                            {feedbacks[i] && (
+                                <div className="mt-4">
+                                    <div className="flex items-center gap-2 text-sm font-medium text-gray-700">
+                                        <Sparkles className="h-4 w-4 text-indigo-500" /> AI Feedback
+                                    </div>
+                                    <div className="mt-1 prose prose-indigo max-w-none text-gray-800">
+                                        {feedbacks[i].split('\n\n').map((paragraph, index) => (
+                                            <p key={index}>{paragraph.split('**').map((part, j) => j % 2 === 1 ? <strong key={j}>{part}</strong> : part)}</p>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    ))}
+                </div>
+            )}
 
             <div className="mt-8 flex flex-col sm:flex-row justify-center gap-4">
                 <button onClick={onBackToFlows} className="rounded-md bg-white px-4 py-2.5 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50">
@@ -383,6 +441,7 @@ export default function App() {
   const [selectedRole, setSelectedRole] = useState(null);
   const [selectedFlow, setSelectedFlow] = useState(null);
   const [finalAnswers, setFinalAnswers] = useState([]);
+  const [finalFeedbacks, setFinalFeedbacks] = useState([]);
 
   const handleStart = () => {
       setScreen('selection');
@@ -399,8 +458,9 @@ export default function App() {
     setScreen('critique');
   };
   
-  const handleCritiqueComplete = (answers) => {
+  const handleCritiqueComplete = (answers, feedbacks) => {
       setFinalAnswers(answers);
+      setFinalFeedbacks(feedbacks || []);
       setScreen('summary');
   }
 
@@ -426,6 +486,7 @@ export default function App() {
       setSelectedRole(null);
       setSelectedFlow(null);
       setFinalAnswers([]);
+      setFinalFeedbacks([]);
   }
 
   const renderScreen = () => {
@@ -439,7 +500,7 @@ export default function App() {
           case 'critique':
               return <CritiqueView product={selectedProduct} flow={selectedFlow} role={selectedRole} onComplete={handleCritiqueComplete} onBack={handleBackToFlowSelection} />
           case 'summary':
-              return <SummaryView product={selectedProduct} flow={selectedFlow} role={selectedRole} answers={finalAnswers} onReset={handleReset} onBackToFlows={handleBackToFlowSelection} />
+              return <SummaryView product={selectedProduct} flow={selectedFlow} role={selectedRole} answers={finalAnswers} feedbacks={finalFeedbacks} onReset={handleReset} onBackToFlows={handleBackToFlowSelection} />
           default:
               return <LandingPage onStart={handleStart} />
       }
